@@ -1,11 +1,12 @@
 import '@styles/globals.css'
-
+import Nav from '@components/Nav'
+import Provider from '@components/Provider'
 export const metadeta = {
     title: "Promt-O-Phobia",
     description: "Share those Prompts",
 }
 
-const RootLayout = ({children}) => {
+const RootLayout = ({ children }) => {
     return (
         <html>
             <body>
@@ -14,6 +15,7 @@ const RootLayout = ({children}) => {
                 </div>
 
                 <main className="app">
+                    <Nav />
                     {children}
                 </main>
             </body>
