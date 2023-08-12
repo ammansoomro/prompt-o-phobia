@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "autoprefixer": "10.4.14",
+    "mongoose": "^7.4.3",
     "next": "13.4.13",
     "next-auth": "^4.23.0",
     "postcss": "8.4.27",
