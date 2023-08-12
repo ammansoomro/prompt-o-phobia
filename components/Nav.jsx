@@ -28,7 +28,7 @@ const Nav = () => {
           width={30}
           height={30}
         />
-        <p className="logo_text">ProptOPhobia</p>
+        <p className="logo_text">PromptOPhobia</p>
       </Link>
 
       {/* Desktop Navigation */}
