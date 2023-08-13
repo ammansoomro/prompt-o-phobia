@@ -22,7 +22,7 @@ const Nav = () => {
       <Link
         href="/" className="flex gap-2 flex-center"
       >
-        <Image src="/assets/images/Logo.svg"
+        <Image src="/assets/images/logo.svg"
           alt="Logo"
           className='object-contain cursor-pointer'
           width={30}
