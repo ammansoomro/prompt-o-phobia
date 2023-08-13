@@ -4,6 +4,8 @@
 @tailwind components;
 @tailwind utilities;
 
+
+
 /* 
   Note: The styles for this gradient grid background is heavily inspired by the creator of this amazing site (https://dub.sh) – all credits go to them! 
 */
@@ -167,4 +169,18 @@
 
 .flex-between {
   @apply flex justify-between items-center;
+}
+
+::-webkit-scrollbar {
+  width: .50rem;
+  background-color: #1e1e2a;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #f28704;
+  border-radius: .3rem;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #c76d00   
 }
