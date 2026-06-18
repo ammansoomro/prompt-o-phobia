@@ -1,17 +1,13 @@
-import Prompt from "@models/prompt";
-import {
-    connectToDB
-} from "@utils/database";
+import { prisma } from "@utils/prisma";
 
-export const GET = async (request, {
-    params
-}) => {
+export const GET = async (request, { params }) => {
     try {
-        await connectToDB()
-
-        const prompts = await Prompt.find({
-            creator: params.id
-        }).populate("creator")
+        const { id } = await params;
+        const prompts = await prisma.prompt.findMany({
+            where: { creatorId: id },
+            include: { creator: true },
+            orderBy: { createdAt: "desc" },
+        });
 
         return new Response(JSON.stringify(prompts), {
             status: 200

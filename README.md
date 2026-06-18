@@ -2,7 +2,7 @@
 
 > An open-source platform for discovering, creating, and sharing AI prompts with the world.
 
-Prompt-O-Phobia is a community-driven web application where users sign in with Google, publish their best AI prompts (tagged by topic), browse a global feed, search by author or tag, and manage their own collection. It is built on the **Next.js 13 App Router** with a **MongoDB** backend and **Google OAuth** authentication.
+Prompt-O-Phobia is a community-driven web application where users sign in with Google, publish their best AI prompts (tagged by topic), browse a global feed, search by author or tag, and manage their own collection. It is built on the **Next.js 15 App Router** with a **PostgreSQL** backend (via **Prisma**) and **Clerk** authentication, and ships with a **Docker Compose** setup for one-command local runs.
 
 ---
 
@@ -37,8 +37,8 @@ Prompt-O-Phobia solves a simple but real problem: **good AI prompts are hard to 
 **Core workflow:**
 
 1. A visitor lands on the home feed and browses/searches all community prompts — no account required to read.
-2. To contribute, the user signs in with their Google account (NextAuth + Google OAuth).
-3. On first sign-in, a user record is created automatically in MongoDB.
+2. To contribute, the user signs in or signs up with [Clerk](https://clerk.com/) (email, social logins, etc.).
+3. On the first authenticated write, a user record is provisioned automatically in PostgreSQL, keyed to the Clerk user id.
 4. The user creates a prompt with a body and a tag (e.g. `#productivity`).
 5. Prompts appear in the global feed, are searchable by tag/username/content, and can be copied to the clipboard with one click.
 6. From their profile, the user can edit or delete their own prompts. They can also click any author to view that creator's public profile and prompts.
@@ -47,7 +47,7 @@ Prompt-O-Phobia solves a simple but real problem: **good AI prompts are hard to 
 
 ## Features
 
-- 🔐 **Google OAuth authentication** via NextAuth.js — sessions, sign-in/out, and auto-provisioning of users on first login.
+- 🔐 **Clerk authentication** — hosted sign-in/sign-up, `<UserButton>` account management, route protection via middleware, and auto-provisioning of PostgreSQL users from the Clerk session.
 - 📝 **Full CRUD for prompts** — create, read, update, and delete, with ownership enforced in the UI.
 - 🌐 **Global prompt feed** — every published prompt rendered as a card with creator, content, and tag.
 - 🔎 **Live search** — debounced, case-insensitive filtering by tag, username, or prompt content.
@@ -55,7 +55,8 @@ Prompt-O-Phobia solves a simple but real problem: **good AI prompts are hard to 
 - 📋 **One-click copy** — copy a prompt to the clipboard with visual confirmation.
 - 👤 **Public & personal profiles** — view your own prompts (with edit/delete controls) or any other creator's prompts.
 - 📱 **Responsive design** — dedicated desktop and mobile navigation, including a mobile dropdown menu.
-- ⚡ **Server Components + Route Handlers** — leverages the Next.js 13 App Router for data fetching and API routes.
+- 🛡️ **Server-side ownership enforcement** — prompt create/edit/delete resolve the creator from the Clerk session and verify ownership in the API, not just the UI.
+- ⚡ **Server Components + Route Handlers** — leverages the Next.js 15 App Router for data fetching and API routes.
 
 ---
 
@@ -64,41 +65,43 @@ Prompt-O-Phobia solves a simple but real problem: **good AI prompts are hard to 
 | Category | Technology |
 | --- | --- |
 | **Language** | JavaScript (JSX), ES Modules |
-| **Framework** | [Next.js 13.4](https://nextjs.org/) (App Router, `experimental.appDir`) |
-| **UI Library** | [React 18.2](https://react.dev/) |
+| **Framework** | [Next.js 15.5](https://nextjs.org/) (App Router) |
+| **UI Library** | [React 19](https://react.dev/) |
 | **Styling** | [Tailwind CSS 3.3](https://tailwindcss.com/), PostCSS, Autoprefixer |
-| **Authentication** | [NextAuth.js 4.23](https://next-auth.js.org/) with Google Provider |
-| **Database** | [MongoDB](https://www.mongodb.com/) |
-| **ODM** | [Mongoose 7.4](https://mongoosejs.com/) |
+| **Authentication** | [Clerk](https://clerk.com/) (`@clerk/nextjs` 7) |
+| **Database** | [PostgreSQL 16](https://www.postgresql.org/) |
+| **ORM** | [Prisma 6](https://www.prisma.io/) |
+| **Containerization** | [Docker](https://www.docker.com/) + Docker Compose |
 | **Package Manager** | npm (`package-lock.json` present) |
 | **Fonts** | Inter & Satoshi (custom Tailwind font families) |
-| **Deployment (inferred)** | [Vercel](https://vercel.com/) |
+| **Deployment** | Docker Compose (local) / [Vercel](https://vercel.com/) (app) |
 
-> No testing framework, linter config beyond `next lint`, TypeScript, Docker, or CI/CD configuration was found in the repository (see [Testing](#testing) and [Deployment](#deployment)).
+> No testing framework or CI/CD configuration is present (see [Testing](#testing)). Linting is available via `next lint`.
 
 ---
 
 ## Architecture
 
-Prompt-O-Phobia is a single Next.js application that serves both the frontend (React Server/Client Components) and the backend (App Router Route Handlers under `app/api`). Mongoose connects to a MongoDB database, and NextAuth handles the Google OAuth flow.
+Prompt-O-Phobia is a single Next.js application that serves both the frontend (React Server/Client Components) and the backend (App Router Route Handlers under `app/api`). Prisma connects to a PostgreSQL database, and Clerk handles authentication via `clerkMiddleware` and the `<ClerkProvider>`/component suite.
 
 ```mermaid
 graph TD
     User([User / Browser])
-    subgraph NextApp["Next.js 13 App"]
+    subgraph NextApp["Next.js 15 App"]
+        MW["clerkMiddleware<br/>(middleware.js)"]
         Pages["React Pages & Components<br/>(Feed, Form, Profile, Nav)"]
         API["Route Handlers<br/>(app/api/*)"]
-        Auth["NextAuth<br/>(Google Provider)"]
     end
-    Google[("Google OAuth")]
-    DB[("MongoDB<br/>via Mongoose")]
+    Clerk[("Clerk<br/>(hosted auth)")]
+    DB[("PostgreSQL<br/>via Prisma")]
 
-    User -->|interacts| Pages
+    User -->|interacts| MW
+    MW -->|public| Pages
+    MW -->|protect authoring routes| API
     Pages -->|fetch /api/...| API
-    Pages -->|signIn / session| Auth
-    Auth <-->|OAuth handshake| Google
-    Auth -->|upsert user| DB
-    API -->|CRUD prompts| DB
+    Pages <-->|sign-in / session| Clerk
+    API -->|auth&#40;&#41; / currentUser&#40;&#41;| Clerk
+    API -->|getOrCreateUser + CRUD prompts| DB
 ```
 
 **Request flow for a prompt action:**
@@ -107,22 +110,26 @@ graph TD
 sequenceDiagram
     participant C as Client Component
     participant R as Route Handler (app/api)
-    participant M as Mongoose Model
-    participant DB as MongoDB
+    participant P as Prisma Client
+    participant DB as PostgreSQL
 
-    C->>R: fetch('/api/prompt/new', POST)
-    R->>R: connectToDB()
-    R->>M: new Prompt({ creator, prompt, tag })
-    M->>DB: save()
-    DB-->>M: document
-    M-->>R: saved prompt
+    C->>R: fetch('/api/prompt/new', POST { prompt, tag })
+    R->>R: auth() → clerkId (401 if missing)
+    R->>R: getOrCreateUser() (Clerk currentUser → Postgres User)
+    R->>P: prisma.prompt.create({ data: { creatorId, prompt, tag } })
+    P->>DB: INSERT
+    DB-->>P: row
+    P-->>R: saved prompt
     R-->>C: 201 Created (JSON)
 ```
 
 **Key architectural notes:**
 
-- **`utils/database.js`** maintains a module-level `isConnected` flag so the serverless function reuses an existing Mongoose connection instead of reconnecting on every invocation.
-- **`next.config.js`** marks `mongoose` as a `serverComponentsExternalPackages` entry and enables `topLevelAwait` in webpack so the ODM works correctly in the server runtime.
+- **Authentication is handled by Clerk.** `middleware.js` runs `clerkMiddleware` and protects only the authoring routes (`/create-prompt`, `/update-prompt`, `/profile`, and the current-user APIs); browsing the feed and viewing other profiles stays public.
+- **Users are provisioned server-side** via `utils/user.js` (`getOrCreateUser`), which maps the Clerk session (`currentUser()`) to a PostgreSQL `User` row keyed by `clerkId`. Prompts reference that row's `id` as `creatorId`, and queries use Prisma's `include: { creator: true }` to embed author details.
+- **`utils/prisma.js`** exports a singleton `PrismaClient`, cached on `globalThis` in development so hot reloads don't exhaust the connection pool.
+- **`prisma/schema.prisma`** defines the `User` and `Prompt` models; migrations live in `prisma/migrations/` and are applied with `prisma migrate deploy` (run automatically on container start).
+- **Next.js 15 async APIs:** dynamic route `params` are awaited in Route Handlers, and the `/profile/[id]` page unwraps `params` with React's `use()`.
 - **Path alias `@*`** (configured in `jsconfig.json`) maps to the project root, enabling imports like `@components/Nav` and `@utils/database`.
 
 ---
@@ -131,34 +138,40 @@ sequenceDiagram
 
 ```
 prompt-o-phobia/
+├── middleware.js                  # clerkMiddleware — protects authoring routes
 ├── app/                          # Next.js App Router (routes + API)
 │   ├── api/
-│   │   ├── auth/[...nextauth]/    # NextAuth Google OAuth handler
 │   │   ├── prompt/
 │   │   │   ├── route.js           # GET all prompts
-│   │   │   ├── new/route.js       # POST create prompt
-│   │   │   └── [id]/route.js      # GET / PATCH / DELETE single prompt
-│   │   └── users/[id]/posts/      # GET prompts by a given user
+│   │   │   ├── new/route.js       # POST create prompt (Clerk-authed)
+│   │   │   └── [id]/route.js      # GET / PATCH / DELETE (ownership enforced)
+│   │   └── users/
+│   │       ├── [id]/posts/        # GET prompts by a given user
+│   │       └── me/posts/          # GET current user's prompts (Clerk-authed)
+│   ├── sign-in/[[...sign-in]]/    # Clerk <SignIn /> page
+│   ├── sign-up/[[...sign-up]]/    # Clerk <SignUp /> page
 │   ├── create-prompt/page.jsx     # Create-prompt page
-│   ├── update-prompt/page.jsx     # Edit-prompt page
+│   ├── update-prompt/page.jsx     # Edit-prompt page (Suspense-wrapped)
 │   ├── profile/
 │   │   ├── page.jsx               # "My profile" (own prompts, edit/delete)
 │   │   ├── [id]/page.jsx          # Another user's public profile
 │   │   └── loading.jsx            # Route-level loading spinner
-│   ├── layout.jsx                 # Root layout (Nav + SessionProvider)
+│   ├── layout.jsx                 # Root layout (ClerkProvider + Nav)
 │   └── page.jsx                   # Home page (hero + Feed)
 ├── components/
 │   ├── Feed.jsx                   # Feed + debounced search
 │   ├── Form.jsx                   # Shared create/edit form
-│   ├── Nav.jsx                    # Responsive navigation + auth controls
+│   ├── Nav.jsx                    # Nav + Clerk auth controls (Show/UserButton)
 │   ├── Profile.jsx                # Profile prompt grid
-│   ├── PromptCard.jsx             # Single prompt card (copy, tag, edit/delete)
-│   └── Provider.jsx               # NextAuth SessionProvider wrapper
-├── models/
-│   ├── prompt.js                  # Mongoose Prompt schema
-│   └── user.js                    # Mongoose User schema
+│   └── PromptCard.jsx             # Single prompt card (copy, tag, edit/delete)
+├── prisma/
+│   ├── schema.prisma              # Prisma schema (User + Prompt models)
+│   └── migrations/                # SQL migrations
 ├── utils/
-│   └── database.js                # Cached Mongoose connection helper
+│   ├── prisma.js                  # Cached PrismaClient singleton
+│   └── user.js                    # getOrCreateUser (Clerk → Postgres sync)
+├── Dockerfile                     # App image (Next.js + Prisma)
+├── docker-compose.yml             # App + PostgreSQL services
 ├── styles/globals.css             # Global + Tailwind styles
 ├── public/assets/                 # Public icons & images
 ├── assets/                        # Source icons & images
@@ -175,27 +188,48 @@ prompt-o-phobia/
 
 Before you begin, make sure you have:
 
-- **Node.js** ≥ 18 (recommended for Next.js 13).
-- **npm** (bundled with Node.js).
-- A **MongoDB** database — a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster works well, or a local `mongod` instance.
-- A **Google Cloud OAuth 2.0 Client** (Client ID + Secret) configured with an authorized redirect URI of `http://localhost:3000/api/auth/callback/google` for local development.
+- **Docker** + **Docker Compose** (the easiest path — runs both the app and PostgreSQL).
+- *Or, for non-Docker local dev:* **Node.js** ≥ 18.18, **npm**, and a **PostgreSQL 16** instance.
+- A **Clerk account and application** ([dashboard.clerk.com](https://dashboard.clerk.com/)) to obtain the publishable and secret keys. Social logins (e.g. Google) are configured in the Clerk dashboard, not in the app.
 
 ---
 
 ## Installation
+
+### Option A — Docker (recommended)
+
+Runs the app and PostgreSQL together. Only Clerk keys are needed in `.env.local`; the database is provisioned for you.
 
 ```bash
 # 1. Clone the repository
 git clone <repository-url>
 cd prompt-o-phobia
 
-# 2. Install dependencies
+# 2. Put your Clerk keys in .env.local (see Environment Variables)
+#    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY
+
+# 3. Build and start everything (app + Postgres).
+#    --env-file passes the Clerk publishable key into the build.
+docker compose --env-file .env.local up --build
+```
+
+The app is served at [http://localhost:3002](http://localhost:3002) (host port `3002` → container `3000`). Migrations are applied automatically on startup via `prisma migrate deploy`.
+
+> Ports `3002` (app) and `5434` (Postgres) are used on the host to avoid clashing with other local services. Change them in `docker-compose.yml` if needed.
+
+### Option B — Local Node.js
+
+```bash
+# 1. Install dependencies (also runs `prisma generate`)
 npm install
 
-# 3. Create your environment file (see next section)
-#    Create a file named .env in the project root and fill in the values
+# 2. Provide a DATABASE_URL in .env and your Clerk keys in .env.local
+#    (start Postgres however you like, e.g. `docker compose up -d db`)
 
-# 4. Start the development server
+# 3. Apply the schema
+npx prisma migrate deploy   # or: npx prisma migrate dev
+
+# 4. Start the dev server
 npm run dev
 ```
 
@@ -205,26 +239,20 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Environment Variables
 
-Create a `.env` file in the project root. `.env` and `*.env` files are git-ignored.
+Clerk variables live in `.env.local`; the Prisma `DATABASE_URL` lives in `.env` (read by the Prisma CLI). See `.env.example` for a template. All `.env*.local` / `.env` files are git-ignored.
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `MONGODB_URI` | ✅ Yes | MongoDB connection string. The app connects to a database named `prompt-o-phobia` (set in `utils/database.js`). |
-| `GOOGLE_CLIENT_ID` | ✅ Yes | Google OAuth 2.0 Client ID used by the NextAuth Google provider. |
-| `GOOGLE_CLIENT_SECRET` | ✅ Yes | Google OAuth 2.0 Client Secret. |
-| `NEXTAUTH_URL` | ✅ Yes _(inferred)_ | Base URL of the app, e.g. `http://localhost:3000` locally. Required by NextAuth for correct OAuth callbacks. |
-| `NEXTAUTH_SECRET` | ⚠️ Recommended _(inferred)_ | Secret used by NextAuth to encrypt JWT/session tokens. Required in production. Generate with `openssl rand -base64 32`. |
+| Variable | Required | Where | Description |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | ✅ Yes | `.env` (and the `app` service env in compose) | PostgreSQL connection string used by Prisma. In Docker this is set automatically to the `db` service. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ✅ Yes | `.env.local` | Clerk publishable key (safe for the browser). Baked into the client bundle at build time. |
+| `CLERK_SECRET_KEY` | ✅ Yes | `.env.local` | Clerk secret key — **server-only, never expose in client code.** |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | ⚙️ Optional | `.env.local` | Path to the sign-in page (`/sign-in`). |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | ⚙️ Optional | `.env.local` | Path to the sign-up page (`/sign-up`). |
 
-> **Inferred entries:** `NEXTAUTH_URL` and `NEXTAUTH_SECRET` are not referenced directly in the source but are standard, effectively-required NextAuth variables. `MONGODB_URI`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are read directly in the code.
-
-Example `.env`:
+> When running with Docker, you do **not** need to set `DATABASE_URL` yourself — `docker-compose.yml` injects it pointing at the bundled Postgres. You only supply Clerk keys. Example `DATABASE_URL` for local (non-Docker) dev:
 
 ```bash
-MONGODB_URI="mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority"
-GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-generated-secret"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5434/prompt_o_phobia?schema=public"
 ```
 
 ---
@@ -237,7 +265,7 @@ Start the local development server with hot reloading:
 npm run dev
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000) and auto-updates as you edit files. Images from `lh3.googleusercontent.com` (Google profile pictures) are whitelisted in `next.config.js`.
+The app runs at [http://localhost:3000](http://localhost:3000) and auto-updates as you edit files. Remote profile images from `img.clerk.com` and `lh3.googleusercontent.com` are whitelisted via `images.remotePatterns` in `next.config.js`.
 
 ---
 
@@ -262,7 +290,14 @@ npm run start
 | `start` | `next start` | Serves the production build (run after `build`). |
 | `lint` | `next lint` | Runs Next.js' built-in ESLint checks. |
 
-> **Note:** No `migrate`, `seed`, `test`, or `format` scripts are defined in `package.json`.
+### Prisma Scripts
+
+| Script | Command | Description |
+| --- | --- | --- |
+| `postinstall` | `prisma generate` | Generates the Prisma client (runs automatically after `npm install`). |
+| `prisma:migrate` | `prisma migrate dev` | Creates and applies a migration in development. |
+| `prisma:deploy` | `prisma migrate deploy` | Applies committed migrations (used on container start). |
+| `prisma:studio` | `prisma studio` | Opens Prisma Studio to browse the database. |
 
 ---
 
@@ -280,7 +315,7 @@ Contributions adding a test framework are welcome — see [Contributing](#contri
 
 ## Database
 
-The app uses **MongoDB** accessed through **Mongoose**. Connections are established lazily inside each route handler via `connectToDB()` (`utils/database.js`), which caches the connection across invocations and targets the `prompt-o-phobia` database.
+The app uses **PostgreSQL** accessed through **Prisma**. A single `PrismaClient` is exported from `utils/prisma.js` and cached on `globalThis` in development. The schema lives in `prisma/schema.prisma`.
 
 ### Data Model
 
@@ -288,14 +323,16 @@ The app uses **MongoDB** accessed through **Mongoose**. Connections are establis
 erDiagram
     USER ||--o{ PROMPT : creates
     USER {
-        ObjectId _id
+        string id PK "cuid"
+        string clerkId "unique, links to Clerk"
         string email "required, unique"
         string username "required"
         string image
     }
     PROMPT {
-        ObjectId _id
-        ObjectId creator "ref: User"
+        string id PK "cuid"
+        string creatorId FK "-> User.id"
+        string title "required"
         string prompt "required"
         string tag "required"
     }
@@ -303,48 +340,48 @@ erDiagram
 
 **Entities:**
 
-- **User** (`models/user.js`) — `email` (required, unique), `username` (required), and `image` (Google avatar URL). Users are created automatically on first Google sign-in.
-- **Prompt** (`models/prompt.js`) — `creator` (reference to a `User`), `prompt` text (required), and `tag` (required). Queries use Mongoose `.populate('creator')` to embed author details.
+- **User** — `clerkId` (unique link to the Clerk user), `email` (required, unique), `username` (required), and `image` (avatar URL). Users are provisioned automatically from the Clerk session on their first authenticated write via `getOrCreateUser` (`utils/user.js`).
+- **Prompt** — `creatorId` (relation to a `User`), `title` (required), `prompt` text (required), and `tag` (required). Queries use Prisma `include: { creator: true }` to embed author details. Deleting a user cascades to their prompts.
 
 ### Migrations & Seeding
 
-There are **no migration or seed scripts**. Mongoose creates collections implicitly on first write, and schemas are enforced at the application level. To seed data, create prompts through the UI after signing in.
+Schema changes are managed with Prisma Migrate. Migrations are stored in `prisma/migrations/` and applied with `npx prisma migrate deploy` (run automatically when the Docker container starts). To create a new migration after editing the schema, run `npx prisma migrate dev --name <change>`. There is no seed script — create prompts through the UI after signing in.
 
 ---
 
 ## API Documentation
 
-All endpoints are implemented as Next.js App Router Route Handlers under `app/api`. Responses are JSON (or plain-text error messages). There is no token-based API auth on the prompt routes themselves — the `creator`/`userId` is supplied by the client based on the NextAuth session.
-
-### Authentication
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` / `POST` | `/api/auth/[...nextauth]` | NextAuth handler for Google OAuth (sign-in, callback, session, sign-out). On first sign-in a `User` document is created; the `session` callback attaches the Mongo `_id` to `session.user.id`. |
+All endpoints are implemented as Next.js App Router Route Handlers under `app/api`. Responses are JSON (or plain-text error messages). **Authentication is handled by Clerk:** write routes call `auth()` from `@clerk/nextjs/server` to identify the user, resolve the Postgres `User`, and enforce ownership — the client never supplies a user id.
 
 ### Prompts
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/prompt` | Returns all prompts, each populated with its creator. |
-| `POST` | `/api/prompt/new` | Creates a new prompt. Body: `{ userId, prompt, tag }`. Returns `201` with the created document. |
-| `GET` | `/api/prompt/:id` | Returns a single prompt (populated with creator). `404` if not found. |
-| `PATCH` | `/api/prompt/:id` | Updates a prompt's `prompt` and `tag`. Body: `{ prompt, tag }`. |
-| `DELETE` | `/api/prompt/:id` | Deletes the prompt with the given id. |
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/prompt` | Public | Returns all prompts, each populated with its creator. |
+| `POST` | `/api/prompt/new` | Required | Creates a prompt. Body: `{ title, prompt, tag }`. The creator is resolved from the Clerk session. Returns `201`. `401` if unauthenticated. |
+| `GET` | `/api/prompt/:id` | Public | Returns a single prompt (populated with creator). `404` if not found. |
+| `PATCH` | `/api/prompt/:id` | Owner only | Updates a prompt's `title`, `prompt`, and `tag`. Body: `{ title, prompt, tag }`. `401`/`403` if not the creator. |
+| `DELETE` | `/api/prompt/:id` | Owner only | Deletes the prompt. `401`/`403` if not the creator. |
 
 ### Users
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/users/:id/posts` | Returns all prompts created by the given user id (populated with creator). |
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/users/:id/posts` | Public | Returns all prompts created by the given user id (with creator included). |
+| `GET` | `/api/users/me/posts` | Required | Returns the signed-in user's prompts, resolved from the Clerk session. `401` if unauthenticated. |
+
+> Auth on `/api/prompt/new` and `/api/users/me/*` is enforced both by `clerkMiddleware` (`middleware.js`) and inside the handlers; the `:id` mutation routes are guarded in-handler so public `GET`s still work.
 
 ### Example: Create a Prompt
+
+Requests must carry the Clerk session cookie/token, so prompt creation is normally done from the signed-in app rather than raw `curl`. The body is just:
 
 ```bash
 curl -X POST http://localhost:3000/api/prompt/new \
   -H "Content-Type: application/json" \
+  --cookie "<clerk-session-cookie>" \
   -d '{
-    "userId": "664f1a2b3c4d5e6f7a8b9c0d",
+    "title": "Senior code reviewer",
     "prompt": "Act as a senior code reviewer and critique the following function...",
     "tag": "coding"
   }'
@@ -360,17 +397,23 @@ curl http://localhost:3000/api/prompt
 
 ## Deployment
 
-No deployment manifests (Dockerfile, `docker-compose`, Kubernetes, or CI workflow) are present. Given the Next.js stack and the `.vercel` entry in `.gitignore`, **Vercel is the inferred deployment target.**
+### Docker (self-hosted)
 
-**To deploy on Vercel:**
+The repository ships with a `Dockerfile` and `docker-compose.yml` that run the app and PostgreSQL together:
 
-1. Push the repository to GitHub/GitLab/Bitbucket.
-2. Import the project into [Vercel](https://vercel.com/new).
-3. Add the environment variables from the [Environment Variables](#environment-variables) section to the Vercel project settings.
-4. Set `NEXTAUTH_URL` to your production URL and add the production OAuth callback (`https://<your-domain>/api/auth/callback/google`) to your Google Cloud credentials.
+```bash
+docker compose --env-file .env.local up --build
+```
+
+This builds the Next.js app image, starts Postgres (with a persistent `pgdata` volume), waits for it to be healthy, applies migrations (`prisma migrate deploy`), and serves the app on [http://localhost:3002](http://localhost:3002). For a managed Postgres, point the `app` service's `DATABASE_URL` at your external database and drop the `db` service.
+
+### Vercel (app) + managed Postgres
+
+1. Push the repository to GitHub/GitLab/Bitbucket and import it into [Vercel](https://vercel.com/new).
+2. Provision a managed PostgreSQL database (e.g. Vercel Postgres, Neon, Supabase, RDS) and copy its connection string.
+3. Add the environment variables from the [Environment Variables](#environment-variables) section to the Vercel project settings (`DATABASE_URL` plus your Clerk keys). Add `prisma migrate deploy` to the build step (or run it as a release task) so the schema is applied.
+4. Use a **production** Clerk instance and set its production keys. Configure social connections in the Clerk dashboard.
 5. Deploy — Vercel auto-detects Next.js and runs `next build`.
-
-The app can also be self-hosted by running `npm run build && npm run start` behind a reverse proxy on any Node.js host.
 
 ---
 
@@ -378,12 +421,15 @@ The app can also be self-hosted by running `npm run build && npm run start` behi
 
 | Issue | Likely Cause & Fix |
 | --- | --- |
-| **MongoDB connection errors** | Check `MONGODB_URI` is correct and your IP is allow-listed in MongoDB Atlas (Network Access). |
-| **Google sign-in fails / redirect mismatch** | Ensure the OAuth redirect URI in Google Cloud matches `<base-url>/api/auth/callback/google`, and that `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set. |
-| **`NEXTAUTH_URL` / session issues** | Set `NEXTAUTH_URL` to the exact app URL and define `NEXTAUTH_SECRET` (especially in production). |
-| **Profile images not loading** | Google avatars come from `lh3.googleusercontent.com`, which is whitelisted in `next.config.js`. Add any new external image domains there. |
+| **Postgres connection errors** | Check `DATABASE_URL` is correct and the database is reachable. In Docker, ensure the `db` service is healthy (`docker compose ps`). |
+| **`Table does not exist` / Prisma P2021** | Migrations haven't been applied. Run `npx prisma migrate deploy` (Docker does this automatically on start). |
+| **Clerk keys missing / 401s everywhere** | Run `clerk doctor`. Ensure `.env.local` has `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (re-run `clerk init` if needed). |
+| **Whole app redirects to sign-in** | Check `middleware.js` — only authoring routes should be in `isProtectedRoute`. The feed (`/`) and public APIs must stay outside it. |
+| **Social login (Google, etc.) not available** | Social connections are configured in the **Clerk dashboard**, not in code or env vars. |
+| **Profile images not loading** | Avatars come from `img.clerk.com`/`lh3.googleusercontent.com`, whitelisted via `images.remotePatterns` in `next.config.js`. Add any new external image hosts there. |
+| **`useSearchParams() should be wrapped in a suspense boundary`** | A client page using `useSearchParams` must be wrapped in `<Suspense>` (as done in `app/update-prompt/page.jsx`) under Next 15. |
 | **Changes to `.env` not applied** | Restart the dev server after editing environment variables. |
-| **`mongoose` build/runtime errors** | `mongoose` is declared in `serverComponentsExternalPackages` in `next.config.js`; keep it there so it runs in the Node server runtime. |
+| **Prisma client out of date** | Re-run `npx prisma generate` after editing `schema.prisma` (the `postinstall` hook does this on `npm install`). |
 
 ---
 
@@ -396,7 +442,7 @@ Contributions are welcome! This is an open-source project.
 3. Commit with a clear message and push your branch.
 4. Open a Pull Request describing your change.
 
-Helpful areas to contribute: adding a test framework, server-side authorization on prompt mutations, input validation, TypeScript migration, and pagination for the feed.
+Helpful areas to contribute: adding a test framework, a Clerk webhook to keep `User` records in sync on profile changes, input validation, TypeScript migration, and pagination for the feed.
 
 ---
 

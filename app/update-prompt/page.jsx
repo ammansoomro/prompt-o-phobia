@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import Form from "@components/Form";
 
-const UpdatePrompt = () => {
+const UpdatePromptForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const promptId = searchParams.get("id");
 
-  const [post, setPost] = useState({ prompt: "", tag: "", });
+  const [post, setPost] = useState({ title: "", prompt: "", tag: "" });
   const [submitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -19,6 +19,7 @@ const UpdatePrompt = () => {
       const data = await response.json();
 
       setPost({
+        title: data.title,
         prompt: data.prompt,
         tag: data.tag,
       });
@@ -37,6 +38,7 @@ const UpdatePrompt = () => {
       const response = await fetch(`/api/prompt/${promptId}`, {
         method: "PATCH",
         body: JSON.stringify({
+          title: post.title,
           prompt: post.prompt,
           tag: post.tag,
         }),
@@ -54,7 +56,7 @@ const UpdatePrompt = () => {
 
   return (
     <Form
-      type='Edit'
+      type="Edit"
       post={post}
       setPost={setPost}
       submitting={submitting}
@@ -62,5 +64,11 @@ const UpdatePrompt = () => {
     />
   );
 };
+
+const UpdatePrompt = () => (
+  <Suspense fallback={<div className="flex-center w-full"><div className="spinner" /></div>}>
+    <UpdatePromptForm />
+  </Suspense>
+);
 
 export default UpdatePrompt;
