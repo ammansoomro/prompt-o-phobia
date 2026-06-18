@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled connection (PgBouncer) for app runtime — safe for serverless.
+  url       = env("DATABASE_URL")
+  // Direct connection for migrations (migrate deploy / migrate dev).
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

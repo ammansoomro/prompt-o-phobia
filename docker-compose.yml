@@ -1,23 +1,4 @@
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: prompt_o_phobia
-    ports:
-      # Host 5434 avoids clashing with other local Postgres instances; the app
-      # talks to the db over the internal network on 5432 regardless.
-      - "5434:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d prompt_o_phobia"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   app:
     build:
       context: .
@@ -26,18 +7,10 @@ services:
         # baked into the client bundle at build time.
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    # Runtime secrets (CLERK_SECRET_KEY, publishable key, sign-in URLs).
+    # All runtime config (DATABASE_URL -> Neon, Clerk keys) comes from the
+    # git-ignored .env.local — no secrets committed in this file.
     env_file:
       - .env.local
-    environment:
-      # Overrides any DATABASE_URL from the env file; points at the db service.
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/prompt_o_phobia?schema=public
     ports:
       # Host 3002 -> container 3000 (host 3000 was occupied by another process).
       - "3002:3000"
-
-volumes:
-  pgdata:
