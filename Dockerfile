@@ -3,7 +3,7 @@
 # Single-stage build: install deps, generate the Prisma client, build Next.js,
 # then run the production server. Debian-based image so Prisma's query engine
 # (which needs OpenSSL) works out of the box.
-FROM node:20-slim
+FROM node:24-slim
 
 WORKDIR /app
 
