@@ -9,11 +9,12 @@ const Profile = ({ name, desc, data, handleEdit, handleDelete }) => {
       <p className="desc text-left">{desc}</p>
 
       {data.length > 0 ? (
-        <div className="prompt_grid">
-          {data.map((post) => (
+        <div className="prompt_list">
+          {data.map((post, index) => (
             <PromptCard
               key={post.id}
               post={post}
+              index={index}
               handleEdit={() => handleEdit && handleEdit(post)}
               handleDelete={() => handleDelete && handleDelete(post)}
             />

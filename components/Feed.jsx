@@ -6,9 +6,14 @@ import PromptCard from "./PromptCard";
 
 const PromptCardList = ({ data, handleTagClick }) => {
   return (
-    <div className="prompt_grid w-full">
-      {data.map((post) => (
-        <PromptCard key={post.id} post={post} handleTagClick={handleTagClick} />
+    <div className="prompt_list w-full">
+      {data.map((post, index) => (
+        <PromptCard
+          key={post.id}
+          post={post}
+          index={index}
+          handleTagClick={handleTagClick}
+        />
       ))}
     </div>
   );

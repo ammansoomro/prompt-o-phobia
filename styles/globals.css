@@ -161,8 +161,16 @@ body {
   @apply flex h-12 items-center justify-between gap-4 rounded-pill border border-white/[0.06] bg-surface px-3 shadow-rim backdrop-blur;
 }
 
-.prompt_grid {
-  @apply mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3;
+.prompt_list {
+  @apply mt-10 flex w-full flex-col divide-y divide-white/[0.06] rounded-card border border-white/[0.06] bg-surface shadow-rim;
+}
+
+.prompt_row {
+  @apply flex cursor-pointer items-center gap-4 px-4 py-5 transition-colors hover:bg-white/[0.02] sm:gap-5 sm:px-6;
+}
+
+.prompt_row_index {
+  @apply hidden shrink-0 font-mono text-caption tabular-nums text-fog/70 sm:block;
 }
 
 .feed {
