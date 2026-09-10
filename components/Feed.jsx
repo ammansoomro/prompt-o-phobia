@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import PromptCard from "./PromptCard";
 
@@ -19,7 +19,7 @@ const Feed = () => {
   const [loading, setLoading] = useState(true);
 
   const [searchText, setSearchText] = useState("");
-  const [searchTimeout, setSearchTimeout] = useState(null);
+  const searchTimeout = useRef(null);
   const [searchedResults, setSearchedResults] = useState([]);
 
   const fetchPosts = async () => {
@@ -34,21 +34,22 @@ const Feed = () => {
   }, []);
 
   const filterPrompts = (searchtext) => {
-    const regex = new RegExp(searchtext, "i");
+    const needle = searchtext.toLowerCase();
     return allPosts.filter(
       (item) =>
-        regex.test(item.creator.username) ||
-        regex.test(item.tag) ||
-        regex.test(item.title) ||
-        regex.test(item.prompt)
+        item.creator.username.toLowerCase().includes(needle) ||
+        item.tag.toLowerCase().includes(needle) ||
+        item.title.toLowerCase().includes(needle) ||
+        item.prompt.toLowerCase().includes(needle)
     );
   };
 
   const handleSearchChange = (e) => {
-    clearTimeout(searchTimeout);
+    clearTimeout(searchTimeout.current);
     setSearchText(e.target.value);
-    setSearchTimeout(
-      setTimeout(() => setSearchedResults(filterPrompts(e.target.value)), 400)
+    searchTimeout.current = setTimeout(
+      () => setSearchedResults(filterPrompts(e.target.value)),
+      400
     );
   };
 
